@@ -811,6 +811,10 @@ function modelProblem(model, providers, slugs, gatewayModels) {
   ) {
     return `model ${model.slug} has an invalid searchTool`;
   }
+  // Native client tool discovery is independent of provider web search.
+  if (model.supportsToolSearch !== undefined && typeof model.supportsToolSearch !== "boolean") {
+    return `model ${model.slug} has an invalid supportsToolSearch flag`;
+  }
   if (model.serviceTiers !== undefined) {
     if (
       !Array.isArray(model.serviceTiers) ||
