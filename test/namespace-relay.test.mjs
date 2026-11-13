@@ -6473,3 +6473,35 @@ test("Moonshot tool repair preserves closed reference conjunctions in namespaces
     assert.deepEqual(repaired[0].inputSchema, schema, "the client's execution schema stays intact");
   }
 });
+
+test("Responses namespace tools repair union roots without flattening or expanding deferred tools", () => {
+  for (const keyword of ["oneOf", "anyOf", "allOf"]) {
+    for (const field of ["parameters", "inputSchema"]) {
+      const schema = {
+        type: "object",
+        [keyword]: [
+          { type: "object", properties: { query: { type: "string" } }, required: ["query"] },
+          { type: "object", properties: { id: { type: "string" } }, required: ["id"] },
+        ],
+      };
+      const recursive = { type: "object", properties: { next: { $ref: "#" } } };
+      const untouched = { type: "function", name: "recursive", parameters: recursive };
+      const tools = [{ type: "namespace", name: "fixture", description: "Fixture tools.",
+        tools: [{ type: "function", name: "lookup", [field]: schema, defer_loading: true }, untouched] }];
+      const original = structuredClone(tools);
+      const repaired = repairToolSchemaRoots(tools);
+      assert.equal(repaired.length, 1);
+      assert.equal(repaired[0].type, "namespace");
+      assert.equal(repaired[0].name, "fixture");
+      assert.equal(repaired[0].tools[0].defer_loading, true);
+      assert.equal(repaired[0].tools.length, 2);
+      const parameters = repaired[0].tools[0][field];
+      assert.equal(parameters.type, "object");
+      assert.equal(parameters[keyword], undefined, `${keyword} must not reach the upstream tool root`);
+      assert.deepEqual(Object.keys(parameters.properties).sort(), ["id", "query"]);
+      assert.equal(repaired[0].tools[1], untouched, "root repair must retain recursive nested schemas");
+      assert.deepEqual(tools, original, "the caller inventory must remain unchanged");
+      assert.equal(repairToolSchemaRoots(repaired), repaired);
+    }
+  }
+});

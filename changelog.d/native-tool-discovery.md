@@ -1,0 +1,1 @@
+- Separate native Codex tool-discovery capability from web search with explicit per-model `supportsToolSearch` metadata, so compatible Responses routes can defer MCP schemas without advertising web search.

@@ -1,0 +1,1 @@
+- **Native Responses tools now repair union schemas inside namespaces.** Claude Opus 5.5 through Venice no longer rejects an entire turn because a namespaced tool carries a top-level `oneOf`, `anyOf`, or `allOf`. The existing root normalization preserves native tool identities, deferred loading, nested recursion, and cache controls.

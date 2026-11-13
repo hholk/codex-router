@@ -1024,19 +1024,6 @@ export function repairToolSchemaRoot(
     return declareTypes ? declareSchemaTypes(inlined) : inlined;
   };
 
-  // Preserve the established shared-provider behavior byte-for-byte. Native
-  // namespace traversal and inputSchema rewriting belong only to the OpenCode
-  // compatibility pass below; other providers keep the original root repair.
-  if (!nonRecursive) {
-    const parameters = tool?.function?.parameters ?? tool?.parameters;
-    if (parameters === undefined) return tool;
-    const repaired = relaySchema(parameters);
-    if (repaired === parameters) return tool;
-    return tool.function
-      ? { ...tool, function: { ...tool.function, parameters: repaired } }
-      : { ...tool, parameters: repaired };
-  }
-
   if (tool?.type === "namespace" && Array.isArray(tool.tools)) {
     let changed = false;
     const children = tool.tools.map((child) => {
@@ -1044,6 +1031,7 @@ export function repairToolSchemaRoot(
         nonRecursive,
         inlineForeignRefs: inlineRefs,
         schemaAdapter,
+        declareTypes,
       });
       if (repaired !== child) changed = true;
       return repaired;
@@ -1053,7 +1041,9 @@ export function repairToolSchemaRoot(
 
   let repairedTool = tool;
   let changed = false;
-  const repair = (schema) => nonRecursiveToolSchema(relaySchema(schema));
+  const repair = (schema) => nonRecursive
+    ? nonRecursiveToolSchema(relaySchema(schema))
+    : relaySchema(schema);
 
   if (tool?.function?.parameters !== undefined) {
     const parameters = repair(tool.function.parameters);
@@ -1071,6 +1061,10 @@ export function repairToolSchemaRoot(
   // parameters recursive on Ox even though the Responses branch was fixed.
   for (const field of ["parameters", "inputSchema"]) {
     if (tool?.[field] === undefined) continue;
+    // Flattened Chat tools keep inputSchema as the client's declaration;
+    // parameters is the provider-facing copy on that path.
+    if (field === "inputSchema" && !nonRecursive &&
+      (tool.parameters !== undefined || tool.function?.parameters !== undefined)) continue;
     const schema = repair(tool[field]);
     if (schema === tool[field]) continue;
     repairedTool = { ...repairedTool, [field]: schema };

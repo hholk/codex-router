@@ -3886,6 +3886,15 @@ async function buildRoutedRequest({ request, payload, route, agedInput }) {
     // strict Responses providers may reject. Run the shared root repair on the
     // tools alone without flattening their native representation.
     tools = repairToolSchemaRoots(tools);
+    // Deferred discovery replays tool declarations in input as well. Repair
+    // those roots without eagerly adding discovered tools to the inventory.
+    if (Array.isArray(input)) {
+      input.forEach((item, index) => {
+        if (item?.type !== "tool_search_output" || !Array.isArray(item.tools)) return;
+        const repaired = repairToolSchemaRoots(item.tools);
+        if (repaired !== item.tools) input[index] = { ...item, tools: repaired };
+      });
+    }
   }
   if (needsNonRecursiveToolSchemaCompatibility(route)) {
     // Run after namespace flattening so both native children and ordinary
